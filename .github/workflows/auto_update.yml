@@ -1,0 +1,49 @@
+name: 🚀 매일 차트 자동 생성 로봇
+
+on:
+
+1. 자동 실행: 한국시간 매일 오후 3시 40분에 자동 실행 (월~금)
+
+schedule:
+- cron: '40 6 * * 1-5'
+
+2. 수동 실행: 내가 원할 때 언제든 'Run workflow' 버튼을 눌러서 실행 가능
+
+workflow_dispatch:
+
+permissions:
+contents: write
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+steps:
+  - name: 📂 내 창고 코드 가져오기
+    uses: actions/checkout@v3
+
+  - name: 🐍 파이썬 환경 세팅
+    uses: actions/setup-python@v4
+    with:
+      python-version: '3.10'
+
+  - name: 🔤 맑은 고딕(한글 폰트) 설치
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y fonts-nanum
+
+  - name: 📦 파이썬 필수 부품(라이브러리) 설치
+    run: |
+      pip install -r requirements.txt
+
+  - name: ⚙️ 파이썬 차트 공장 가동!
+    run: |
+      python chart_maker.py
+
+  - name: 💾 만들어진 이미지와 코드를 창고에 다시 저장하기
+    run: |
+      git config --global user.name 'github-actions[bot]'
+      git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      git add .
+      git commit -m "📈 자동 업데이트: 새로운 차트 및 날짜 반영 완료" || echo "변경된 내용이 없습니다."
+      git push
