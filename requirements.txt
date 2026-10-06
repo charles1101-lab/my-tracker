@@ -1,0 +1,9 @@
+yfinance
+mplfinance
+openpyxl
+Pillow
+pytz
+pykrx
+pandas
+numpy
+matplotlib

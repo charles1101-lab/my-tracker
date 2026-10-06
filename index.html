@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>지표 추적기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-800 m-0 p-0 overflow-hidden" style="font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // 파이썬 로봇이 매일 업데이트할 날짜 배열입니다. (건드리지 않으셔도 됩니다!)
+    const DATES = ['1006']; 
+
+    // 파이썬에서 만들어주는 10가지 지표 이미지 이름입니다.
+    const METRICS = [
+      '코스피_투자자별_누적순매수',
+      'KOSPI', 
+      'KODEX 200타겟위클리커버드콜', 
+      'TIGER배당커버드콜액티브', 
+      '나스닥100', 
+      'TIME미국나스닥100액티브', 
+      '원달러 환율', 
+      '금 현물 (달러 기준)', 
+      '금 현물 (원화 기준)', 
+      '은 현물 (달러 기준)'
+    ];
+
+    const DEFAULT_TEMPLATE = `<b>>> 장기 계획</b><br>. 매수 : <br>. 매도 : <br><b>>> 어제 계획</b><br>. 매수 : <br>. 매도 : <br><b>>> 오늘 계획</b><br>. 매수 : <br>. 매도 : `;
+
+    const EditableContent = ({ initialValue, onChange }) => {
+      const divRef = useRef(null);
+      const [isFocused, setIsFocused] = useState(false);
+
+      useEffect(() => {
+        if (divRef.current && !isFocused && divRef.current.innerHTML !== initialValue) {
+          divRef.current.innerHTML = initialValue;
+        }
+      }, [initialValue, isFocused]);
+
+      return (
+        <div
+          ref={divRef}
+          contentEditable
+          suppressContentEditableWarning
+          className="w-full h-full bg-transparent outline-none z-10 relative text-[14px]"
+          style={{ lineHeight: '24px', paddingTop: '2px', minHeight: '216px' }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={(e) => { setIsFocused(false); onChange(e.currentTarget.innerHTML); }}
+          onInput={(e) => onChange(e.currentTarget.innerHTML)}
+          onTouchStart={(e) => e.stopPropagation()} 
+        />
+      );
+    };
+
+    function App() {
+      const [position, setPosition] = useState({ x: 0, y: 0 });
+      const [entries, setEntries] = useState({});
+      const touchStart = useRef({ x: 0, y: 0 });
+      const touchEnd = useRef({ x: 0, y: 0 });
+
+      const handleSwipe = () => {
+        const minSwipeDistance = 50;
+        const deltaX = touchEnd.current.x - touchStart.current.x;
+        const deltaY = touchEnd.current.y - touchStart.current.y;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (Math.abs(deltaX) > minSwipeDistance) {
+            if (deltaX > 0 && position.x > 0) setPosition(p => ({ ...p, x: p.x - 1 }));
+            else if (deltaX < 0 && position.x < METRICS.length - 1) setPosition(p => ({ ...p, x: p.x + 1 }));
+          }
+        } else {
+          if (Math.abs(deltaY) > minSwipeDistance) {
+            if (deltaY > 0 && position.y > 0) setPosition(p => ({ ...p, y: p.y - 1 }));
+            else if (deltaY < 0 && position.y < DATES.length - 1) setPosition(p => ({ ...p, y: p.y + 1 }));
+          }
+        }
+      };
+
+      const onTouchStart = (e) => {
+        touchEnd.current = { x: 0, y: 0 };
+        touchStart.current = { x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY };
+      };
+      const onTouchMove = (e) => { touchEnd.current = { x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY }; };
+      const onTouchEnd = () => { if (touchEnd.current.x !== 0 || touchEnd.current.y !== 0) handleSwipe(); };
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.target.isContentEditable) return;
+          switch (e.key) {
+            case 'ArrowRight': if (position.x < METRICS.length - 1) setPosition(p => ({ ...p, x: p.x + 1 })); break;
+            case 'ArrowLeft': if (position.x > 0) setPosition(p => ({ ...p, x: p.x - 1 })); break;
+            case 'ArrowUp': if (position.y < DATES.length - 1) setPosition(p => ({ ...p, y: p.y + 1 })); break;
+            case 'ArrowDown': if (position.y > 0) setPosition(p => ({ ...p, y: p.y - 1 })); break;
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [position]);
+
+      const handleTextChange = (y, x, value) => setEntries(prev => ({ ...prev, [`${y}-${x}`]: value }));
+
+      return (
+        <div className="w-full h-dvh overflow-hidden bg-gray-900 relative" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+          <div className="absolute top-0 left-0 w-full h-full flex transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
+            style={{ width: `${METRICS.length * 100}vw`, height: `${DATES.length * 100}dvh`, transform: `translate3d(-${position.x * 100}vw, -${position.y * 100}dvh, 0)` }}>
+            
+            {DATES.map((date, y) => (
+              <div key={`y-${y}`} className="flex flex-row h-full" style={{ width: '100vw', minWidth: '100vw' }}>
+                {METRICS.map((metric, x) => (
+                  <div key={`x-${x}`} className="w-screen h-dvh flex-shrink-0 flex items-center justify-center bg-white"
+                       style={{ position: 'absolute', top: `${y * 100}dvh`, left: `${x * 100}vw` }}>
+                    <div className="w-full h-full sm:max-w-md sm:max-h-[850px] bg-white flex flex-col overflow-hidden">
+                      
+                      <header className="px-4 py-2.5 flex items-center justify-between border-b border-gray-100">
+                        <div className="flex items-baseline gap-2">
+                          <h2 className="text-[16px] font-bold text-gray-900">{date}</h2>
+                          <span className="text-[11px] font-medium text-blue-500 truncate max-w-[150px]">{metric.replace(/_/g, ' ')}</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          {METRICS.map((_, idx) => (
+                            <div key={idx} className={`w-1.5 h-1.5 rounded-full ${idx === x ? 'bg-blue-500' : 'bg-gray-200'}`}/>
+                          ))}
+                        </div>
+                      </header>
+
+                      {/* 이미지 로딩 에러 시 가짜 이미지를 보여주는 안전 장치 포함 */}
+                      <div className="w-full aspect-[4/5] bg-slate-100 relative flex justify-center items-center overflow-hidden">
+                        <img 
+                          src={`./${metric}_${date}.jpg`} 
+                          onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/800x1000/f8fafc/475569?text=${encodeURIComponent(metric)}%5CnNo+Data+Yet&font=raleway`; }}
+                          alt={`${date} ${metric}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 flex flex-col px-4 py-2 bg-white relative">
+                        <div className="absolute inset-0 pointer-events-none opacity-10 mx-4" style={{ backgroundImage: 'linear-gradient(transparent calc(100% - 1px), #94a3b8 0)', backgroundSize: '100% 24px', marginTop: '2px' }}></div>
+                        <EditableContent initialValue={entries[`${y}-${x}`] || DEFAULT_TEMPLATE} onChange={(value) => handleTextChange(y, x, value)} />
+                      </div>
+
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
